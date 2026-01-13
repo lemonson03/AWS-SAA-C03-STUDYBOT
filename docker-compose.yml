@@ -1,11 +1,16 @@
 version: "3.8"
 
 services:
-  algo-bot:
-    image: ghcr.io/YOUR_GITHUB_ID/algo-study-bot:latest
-    container_name: algo-study-bot
+  saa-bot:
+    build:
+      context: https://github.com/lemonson03/AWS-SAA-C03-STUDYBOT.git#main
+      dockerfile: Dockerfile
+    container_name: saa-study-bot
+    image: saa-bot:latest
     restart: always
     env_file:
       - .env
     volumes:
-      - ./data:/app
+      # 변경 전: - ./data:/app (전체 폴더를 덮어버림)
+      # 변경 후: DB 파일만 따로 연결
+      - ./data/study.db:/app/study.db
