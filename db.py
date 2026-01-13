@@ -1,5 +1,16 @@
 # db.py (일부 발췌 및 수정)
+# db.py 수정
+import os
 
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+# 데이터 전용 폴더인 data 폴더 안에 db가 생성되도록 경로 수정
+DATA_DIR = os.path.join(BASE_DIR, "data")
+
+# 만약 data 폴더가 없으면 생성 (권한 에러 방지)
+if not os.path.exists(DATA_DIR):
+    os.makedirs(DATA_DIR)
+
+DB_PATH = os.path.join(DATA_DIR, "study.db")
 def init_db():
     # ... 기존 테이블 생성 코드 유지 ...
     
