@@ -1,35 +1,63 @@
-# db.py (일부 발췌 및 수정)
-# db.py 수정
+import sqlite3
 import os
+from datetime import datetime
 
+# 파일 경로 설정
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-# 데이터 전용 폴더인 data 폴더 안에 db가 생성되도록 경로 수정
 DATA_DIR = os.path.join(BASE_DIR, "data")
 
-# 만약 data 폴더가 없으면 생성 (권한 에러 방지)
+# 데이터 전용 폴더가 없으면 생성 (권한 에러 방지)
 if not os.path.exists(DATA_DIR):
     os.makedirs(DATA_DIR)
 
 DB_PATH = os.path.join(DATA_DIR, "study.db")
+
+# ✅ DB 연결 및 커서 정의 (이 부분이 정확해야 에러가 안 납니다)
+conn = sqlite3.connect(DB_PATH, check_same_thread=False)
+cur = conn.cursor()
+
 def init_db():
-    # ... 기존 테이블 생성 코드 유지 ...
-    
-    # users 테이블에 진도 정보(progress) 추가
+    """데이터베이스 테이블 초기화"""
+    # 설정 테이블
+    cur.execute("""
+    CREATE TABLE IF NOT EXISTS settings (
+        key TEXT PRIMARY KEY,
+        value TEXT
+    )
+    """)
+
+    # 사용자 진도 및 랭킹 테이블
     cur.execute("""
     CREATE TABLE IF NOT EXISTS users (
         user_id INTEGER PRIMARY KEY,
-        progress TEXT DEFAULT '섹션 1',  -- 현재 어디까지 했는지 (예: '섹션 5', '문제 100')
-        points INTEGER DEFAULT 0         -- 정렬용 점수 (내부 계산)
+        progress TEXT DEFAULT '섹션 1',
+        points INTEGER DEFAULT 0
     )
     """)
-    
-    # 주간 목표 저장용 설정
+
+    # 벌금 테이블
+    cur.execute("""
+    CREATE TABLE IF NOT EXISTS fines (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER,
+        amount INTEGER,
+        reason TEXT,
+        created_at TEXT,
+        is_settled INTEGER DEFAULT 0
+    )
+    """)
+
+    # 초기 설정값 삽입
     cur.execute("INSERT OR IGNORE INTO settings (key, value) VALUES ('weekly_goal', '섹션 1 시작')")
+    
     conn.commit()
+
+# =========================
+# 진도 및 랭킹 관리
+# =========================
 
 def update_progress(user_id: int, progress_str: str):
     """사용자의 진도를 업데이트하고 정렬용 점수를 계산하여 저장"""
-    # 점수 계산 로직: '섹션 1' -> 1점, '문제 1' -> 1001점 (섹션 30 이후가 문제이므로)
     score = 0
     try:
         if "섹션" in progress_str:
@@ -37,13 +65,14 @@ def update_progress(user_id: int, progress_str: str):
             score = num
         elif "문제" in progress_str:
             num = int(progress_str.replace("문제", "").strip())
-            score = 1000 + num  # 섹션보다 무조건 높게
+            score = 1000 + num
     except:
-        score = 0 # 형식에 안 맞으면 0점
+        score = 0
 
+    # 사용자 등록 및 업데이트
     cur.execute(
-        "UPDATE users SET progress=?, points=? WHERE user_id=?",
-        (progress_str, score, user_id)
+        "INSERT OR REPLACE INTO users (user_id, progress, points) VALUES (?, ?, ?)",
+        (user_id, progress_str, score)
     )
     conn.commit()
 
@@ -52,10 +81,31 @@ def get_saa_ranking():
     cur.execute("SELECT user_id, progress FROM users ORDER BY points DESC")
     return cur.fetchall()
 
+# =========================
+# 목표 관리
+# =========================
+
 def set_weekly_goal(goal_str: str):
     cur.execute("UPDATE settings SET value=? WHERE key='weekly_goal'", (goal_str,))
     conn.commit()
 
 def get_weekly_goal():
     cur.execute("SELECT value FROM settings WHERE key='weekly_goal'")
-    return cur.fetchone()[0]
+    row = cur.fetchone()
+    return row[0] if row else "설정된 목표 없음"
+
+# =========================
+# 벌금 관리 (기본 기능)
+# =========================
+
+def add_fine(user_id: int, amount: int, reason: str):
+    cur.execute(
+        "INSERT INTO fines (user_id, amount, reason, created_at) VALUES (?, ?, ?, ?)",
+        (user_id, amount, reason, datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+    )
+    conn.commit()
+
+def get_user_fine(user_id: int) -> int:
+    cur.execute("SELECT SUM(amount) FROM fines WHERE user_id=? AND is_settled=0", (user_id,))
+    row = cur.fetchone()
+    return row[0] if row[0] else 0
