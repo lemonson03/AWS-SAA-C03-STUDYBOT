@@ -1,0 +1,11 @@
+version: "3.8"
+
+services:
+  algo-bot:
+    image: ghcr.io/YOUR_GITHUB_ID/algo-study-bot:latest
+    container_name: algo-study-bot
+    restart: always
+    env_file:
+      - .env
+    volumes:
+      - ./data:/app
