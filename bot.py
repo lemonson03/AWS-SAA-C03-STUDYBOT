@@ -1,5 +1,11 @@
 # bot.py (주요 기능 위주)
-
+import os
+import discord
+from discord.ext import commands, tasks  # ⬅️ 이 줄이 빠져있을 확률이 99%입니다!
+from discord import app_commands
+from dotenv import load_dotenv
+from datetime import date, datetime, timedelta
+import db
 ALLOWED_CHANNEL = "aws-saa-c03"
 
 class AlgoBot(commands.Bot):
